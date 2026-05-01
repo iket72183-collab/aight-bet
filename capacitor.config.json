@@ -1,0 +1,8 @@
+{
+  "appId": "com.aightbet.app",
+  "appName": "Aight Bet",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": true
+  }
+}
