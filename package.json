@@ -15,6 +15,7 @@
     "@capacitor/android": "^8.3.1",
     "@capacitor/cli": "^8.3.1",
     "@capacitor/core": "^8.3.1",
+    "@supabase/supabase-js": "^2.49.4",
     "axios": "^1.14.0",
     "concurrently": "^9.2.1",
     "cors": "^2.8.6",

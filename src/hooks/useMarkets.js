@@ -16,25 +16,44 @@ const MANUAL_REFRESH_COOLDOWN_MS = 30 * 1000;
 /**
  * Estimated game durations by league (in hours).
  * Events that started longer ago than this are filtered out as "likely finished."
+ * Used as a fallback when scores data isn't available.
  */
 const GAME_DURATION_HOURS = {
   NBA: 3,
   MLB: 4,
   NFL: 4,
-  MMA: 5,
+  MMA: 8, // UFC cards can span prelims through main event
 };
 
+/** Hard ceiling: no event in any sport lasts more than 12 hours */
+const MAX_EVENT_AGE_MS = 12 * 60 * 60 * 1000;
+
 /**
- * Filter out events that have likely ended based on commence time + typical game duration.
+ * Filter out events that have likely ended.
+ * Uses scores completion data when available, falls back to
+ * commence_time + estimated duration as a rough heuristic.
+ * Hard cutoff: anything that started 12+ hours ago is always removed
+ * (catches stale API data that the scores endpoint doesn't cover).
+ *
+ * @param {Array} markets - market objects with id and commenceTime
+ * @param {string} league - league key (NBA, MLB, etc.)
+ * @param {Map} [completedIds] - Set or Map of event IDs confirmed completed by scores API
  */
-function filterFinishedGames(markets, league) {
+export function filterFinishedGames(markets, league, completedIds) {
   const durationMs = (GAME_DURATION_HOURS[league] || 4) * 60 * 60 * 1000;
   const now = Date.now();
 
   return markets.filter((m) => {
+    // If scores API confirms this event is completed, hide it
+    if (completedIds && completedIds.has(m.id)) return false;
+
     if (!m.commenceTime) return true;
-    const started = new Date(m.commenceTime).getTime();
-    return now - started < durationMs;
+    const elapsed = now - new Date(m.commenceTime).getTime();
+
+    // Hard cutoff — the Odds API can return stale events for days
+    if (elapsed > MAX_EVENT_AGE_MS) return false;
+
+    return elapsed < durationMs;
   });
 }
 
@@ -112,7 +131,7 @@ export function useMarkets(league, { refreshInterval = DEFAULT_REFRESH_MS } = {}
       const liveMarkets = await fetchOddsForLeague(league, { force, signal: controller.signal });
       if (controller.signal.aborted) return;
 
-      const active = filterFinishedGames(liveMarkets, league);
+      const active = filterFinishedGames(liveMarkets, league, null);
       setMarkets(active);
       setIsLive(true);
       setCachedMarkets(league, active);

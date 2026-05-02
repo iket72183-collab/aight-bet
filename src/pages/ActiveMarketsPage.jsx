@@ -3,7 +3,7 @@ import MarketCard from '../components/MarketCard';
 import LeagueLogo from '../components/LeagueLogo';
 import PullToRefresh from '../components/PullToRefresh';
 import { leagueTabs, leagueConfig } from '../data/markets';
-import { useMarkets } from '../hooks/useMarkets';
+import { useMarkets, filterFinishedGames } from '../hooks/useMarkets';
 import { useScores } from '../hooks/useScores';
 import { useGameState } from '../hooks/useGameState';
 import { getLocalDateString, formatDateGroupLabel } from '../lib/timezone';
@@ -51,12 +51,36 @@ const panelId = 'markets-tabpanel';
 
 export default function ActiveMarketsPage() {
   const [activeTab, setActiveTab] = useState('NBA');
-  const { markets, isLive, loading, error, refetch, lastUpdated, canRefresh } = useMarkets(activeTab);
-  const hasLiveGames = useMemo(() => markets.some((m) => m.isLive), [markets]);
-  const { scores } = useScores(activeTab, hasLiveGames);
-  const { gameStates } = useGameState(activeTab, markets, hasLiveGames);
+  const { markets: rawMarkets, isLive, loading, error, refetch, lastUpdated, canRefresh } = useMarkets(activeTab);
+  // Fetch scores when any event has started (live or potentially completed) so we can filter finished ones
+  const hasStartedGames = useMemo(() => {
+    const now = Date.now();
+    return rawMarkets.some((m) => m.commenceTime && new Date(m.commenceTime).getTime() <= now);
+  }, [rawMarkets]);
+  const { scores } = useScores(activeTab, hasStartedGames);
+  const hasLiveGames = useMemo(() => rawMarkets.some((m) => m.isLive), [rawMarkets]);
+  // Fetch gamestate when events have started — needed to detect completed MMA/UFC events
+  const { gameStates } = useGameState(activeTab, rawMarkets, hasStartedGames);
   const [refreshing, setRefreshing] = useState(false);
   const tabRefs = useRef({});
+
+  // Filter out completed events using scores + ESPN gamestate data
+  const markets = useMemo(() => {
+    const completedIds = new Set();
+
+    // Source 1: Scores API — has a `completed` flag for team sports
+    for (const [id, scoreData] of scores) {
+      if (scoreData.completed) completedIds.add(id);
+    }
+
+    // Source 2: ESPN gamestate — catches MMA/UFC events the scores API misses
+    for (const [id, gs] of gameStates) {
+      if (gs.completed || gs.state === 'post') completedIds.add(id);
+    }
+
+    if (completedIds.size === 0) return rawMarkets;
+    return rawMarkets.filter((m) => !completedIds.has(m.id));
+  }, [rawMarkets, scores, gameStates]);
 
   const handleManualRefresh = async () => {
     if (!canRefresh) return;
