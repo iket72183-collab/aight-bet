@@ -24,7 +24,14 @@ app.use(express.json());
 const ODDS_API_KEY = process.env.ODDS_API_KEY;
 const ODDS_BASE = 'https://api.the-odds-api.com/v4';
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_KEY_CANDIDATES = [
+  ['SUPABASE_SERVICE_ROLE_KEY', process.env.SUPABASE_SERVICE_ROLE_KEY],
+  ['SUPABASE_SECRET_KEY', process.env.SUPABASE_SECRET_KEY],
+  ['SUPABASE_SERVICE_KEY', process.env.SUPABASE_SERVICE_KEY],
+];
+const SUPABASE_KEY_ENTRY = SUPABASE_KEY_CANDIDATES.find(([, value]) => Boolean(value));
+const SUPABASE_SERVICE_KEY = SUPABASE_KEY_ENTRY?.[1];
+const SUPABASE_KEY_ENV_NAME = SUPABASE_KEY_ENTRY?.[0];
 const CRON_SECRET = process.env.CRON_SECRET;
 
 // Flexible configuration via Env Vars
@@ -60,8 +67,16 @@ const supabase =
     ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
     : null;
 
-if (!supabase) {
-  console.warn('[server] WARNING: Supabase not configured — sync/picks endpoints disabled');
+if (supabase) {
+  console.log(`[server] Supabase configured via ${SUPABASE_KEY_ENV_NAME}`);
+} else {
+  const missing = [
+    !SUPABASE_URL && 'SUPABASE_URL',
+    !SUPABASE_SERVICE_KEY && 'SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SECRET_KEY',
+  ].filter(Boolean);
+  console.warn(
+    `[server] WARNING: Supabase not configured (${missing.join(', ')}) — sync/picks endpoints disabled`
+  );
 }
 
 if (!CRON_SECRET) {
