@@ -62,11 +62,20 @@ export default function Layout({ children }) {
         </div>
       </footer>
 
-      {/* Bottom spacing for web mock banner — native uses noBorder which resizes WebView automatically */}
+      {/* Bottom spacing so content isn't hidden behind the ad banner */}
       <div className="h-[60px] shrink-0" aria-hidden="true" />
 
       <AgeGateModal />
       <AdBanner />
+
+      {/* Bottom fill — covers any gap below the ad banner (system nav bar area) */}
+      <div
+        className="fixed bottom-0 left-0 right-0 h-[40px] z-40 pointer-events-none"
+        aria-hidden="true"
+        style={{
+          background: 'linear-gradient(to top, #0a0a0a 0%, rgba(10, 10, 10, 0.95) 40%, rgba(128, 0, 255, 0.12) 100%)',
+        }}
+      />
     </div>
   );
 }
