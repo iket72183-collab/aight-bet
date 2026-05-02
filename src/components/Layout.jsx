@@ -70,11 +70,8 @@ export default function Layout({ children }) {
 
       {/* Bottom fill — covers any gap below the ad banner (system nav bar area) */}
       <div
-        className="fixed bottom-0 left-0 right-0 h-[40px] z-40 pointer-events-none"
+        className="fixed bottom-0 left-0 right-0 h-[60px] z-[999] pointer-events-none bg-black"
         aria-hidden="true"
-        style={{
-          background: 'linear-gradient(to top, #0a0a0a 0%, rgba(10, 10, 10, 0.95) 40%, rgba(128, 0, 255, 0.12) 100%)',
-        }}
       />
     </div>
   );
