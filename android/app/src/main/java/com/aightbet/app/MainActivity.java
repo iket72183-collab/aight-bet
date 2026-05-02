@@ -1,5 +1,17 @@
 package com.aightbet.app;
 
+import android.os.Bundle;
+import android.view.View;
+import androidx.core.view.WindowCompat;
 import com.getcapacitor.BridgeActivity;
 
-public class MainActivity extends BridgeActivity {}
+public class MainActivity extends BridgeActivity {
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        // Draw behind system bars so the ad banner sits flush at screen bottom
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        getWindow().setNavigationBarColor(android.graphics.Color.TRANSPARENT);
+    }
+}
