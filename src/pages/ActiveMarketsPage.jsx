@@ -3,6 +3,7 @@ import MarketCard from '../components/MarketCard';
 import LeagueLogo from '../components/LeagueLogo';
 import { leagueTabs, leagueConfig } from '../data/markets';
 import { useMarkets } from '../hooks/useMarkets';
+import { useScores } from '../hooks/useScores';
 import { Loader2, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 
 /**
@@ -63,6 +64,8 @@ const panelId = 'markets-tabpanel';
 export default function ActiveMarketsPage() {
   const [activeTab, setActiveTab] = useState('NBA');
   const { markets, isLive, loading, error, refetch, lastUpdated, canRefresh } = useMarkets(activeTab);
+  const hasLiveGames = useMemo(() => markets.some((m) => m.isLive), [markets]);
+  const { scores } = useScores(activeTab, hasLiveGames);
   const [refreshing, setRefreshing] = useState(false);
   const tabRefs = useRef({});
 
@@ -93,13 +96,13 @@ export default function ActiveMarketsPage() {
   const config = leagueConfig[activeTab] || { label: activeTab };
 
   return (
-    <div className="flex flex-col w-full min-h-[90vh] bg-[#0a0a0a] pt-24 px-6 md:px-12 pb-20 relative overflow-hidden">
+    <div className="flex flex-col w-full min-h-[90vh] bg-[#0a0a0a] pt-4 px-6 md:px-12 pb-16 relative overflow-hidden">
       {/* Background glow */}
       <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-[var(--color-brand-gold)]/5 blur-[150px] rounded-full pointer-events-none" />
 
       <div className="max-w-7xl mx-auto w-full relative z-10">
-        <div className="mb-10">
-          <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <div className="mb-4">
+          <div className="flex items-center gap-3 mb-2 flex-wrap">
             <h1 className="text-4xl md:text-5xl font-[Outfit] font-extrabold text-white leading-tight">
               {config.label.toUpperCase()}
             </h1>
@@ -113,13 +116,15 @@ export default function ActiveMarketsPage() {
               </span>
             )}
           </div>
-          <p className="text-gray-300 text-lg max-w-2xl">
-            {isLive
-              ? 'Live moneyline odds sourced from FanDuel, DraftKings, and BetMGM — for consultation only.'
-              : 'Sample moneyline markets for reference. Connect a live odds feed to see real events.'}
-          </p>
+          {isLive ? (
+            <p className="text-gray-300 text-sm max-w-2xl">
+              Live moneyline odds sourced from FanDuel, DraftKings, and BetMGM — for consultation only.
+            </p>
+          ) : (
+            <img src="/logo-hero.png" alt="Aight Bet" className="h-8 mt-1 object-contain opacity-60" />
+          )}
           {isLive && lastUpdated && (
-            <div className="flex items-center gap-3 mt-3">
+            <div className="flex items-center gap-3 mt-2">
               <span className="text-xs text-gray-300">
                 Updated {lastUpdated.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
                 {' · auto-refreshes every 5 min'}
@@ -141,7 +146,7 @@ export default function ActiveMarketsPage() {
           role="tablist"
           aria-label="League"
           onKeyDown={handleTabKeyDown}
-          className="flex gap-3 mb-10 overflow-x-auto pb-4 scrollbar-hide"
+          className="flex gap-3 mb-5 overflow-x-auto pb-3 scrollbar-hide"
         >
           {leagueTabs.map((tab) => {
             const tabConfig = leagueConfig[tab] || { label: tab };
@@ -209,7 +214,7 @@ export default function ActiveMarketsPage() {
                   {/* Cards grid */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {dateMarkets.map((market) => (
-                      <MarketCard key={market.id} market={market} />
+                      <MarketCard key={market.id} market={market} score={scores.get(market.id)} />
                     ))}
                   </div>
                 </section>

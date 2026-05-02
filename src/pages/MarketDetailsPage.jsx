@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, TrendingUp, AlertTriangle, ArrowLeftRight, BarChart3 } from 'lucide-react';
 import { getMarketById, calculatePayout } from '../data/markets';
 import { getCachedMarketById } from '../hooks/useMarkets';
+import { useScores } from '../hooks/useScores';
 import LeagueLogo from '../components/LeagueLogo';
 import TeamLogo from '../components/TeamLogo';
 
@@ -37,7 +38,11 @@ export default function MarketDetailsPage() {
   const initialType = location.state?.selectedType || null; // null = no pick yet
 
   const [betType, setBetType] = useState(initialType);
-  const [wager, setWager] = useState(100);
+  const [wager, setWager] = useState('100');
+
+  // Live scores — only polls when this game is live
+  const { scores } = useScores(market?.league || 'NBA', Boolean(market?.isLive));
+  const score = market ? scores.get(market.id) : null;
 
   /** Select a pick */
   const selectPick = (type) => {
@@ -80,20 +85,21 @@ export default function MarketDetailsPage() {
   const altTeam = isUnderdog ? market.safeTeam : market.riskyTeam;
   const altOdds = isUnderdog ? market.safeOdds : market.riskyOdds;
 
-  const payout = hasPick ? calculatePayout(wager, selectedOdds).toFixed(2) : '—';
+  const wagerNum = parseFloat(wager) || 0;
+  const payout = hasPick ? calculatePayout(wagerNum, selectedOdds).toFixed(2) : '—';
 
   // Payout calculations for the comparison cards
   const safePayout = calculatePayout(100, market.safeOdds).toFixed(2);
   const riskyPayout = calculatePayout(100, market.riskyOdds).toFixed(2);
 
   return (
-    <div className="flex flex-col w-full min-h-[90vh] bg-[#0a0a0a] pt-24 px-4 md:px-12 pb-20 relative overflow-hidden">
+    <div className="flex flex-col w-full min-h-[90vh] bg-[#0a0a0a] pt-4 px-4 md:px-12 pb-16 relative overflow-hidden">
       {/* Background glow */}
       <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-[var(--color-brand-gold)]/5 blur-[150px] rounded-full pointer-events-none" />
 
       <button
         onClick={() => navigate(-1)}
-        className="flex items-center gap-2 text-gray-400 hover:text-[var(--color-brand-gold)] transition-colors mb-6 w-fit group"
+        className="flex items-center gap-2 text-gray-400 hover:text-[var(--color-brand-gold)] transition-colors mb-3 w-fit group"
       >
         <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
         <span className="text-sm tracking-widest uppercase font-medium">Back</span>
@@ -101,8 +107,8 @@ export default function MarketDetailsPage() {
 
       <div className="max-w-6xl mx-auto w-full relative z-10">
         {/* ── Header ──────────────────────────────────────────── */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-3 flex-wrap">
+        <div className="mb-4">
+          <div className="flex items-center gap-3 mb-2 flex-wrap">
             <span className="flex items-center gap-1.5 px-3 py-1 bg-white/5 border border-white/10 rounded text-xs font-medium uppercase tracking-widest text-gray-300">
               <LeagueLogo league={market.league} size={14} organization={market.organization} />
               {market.eventName || market.organization || market.league}
@@ -118,26 +124,43 @@ export default function MarketDetailsPage() {
           <h1 className="text-3xl md:text-5xl font-[Outfit] font-extrabold text-white leading-tight">
             {market.safeTeam} <span className="text-gray-400 font-light mx-1">vs</span> {market.riskyTeam}
           </h1>
+
+          {/* Live scoreboard */}
+          {score && market.isLive && (
+            <div className="flex items-center gap-5 mt-3 py-3 px-5 bg-black/40 rounded-xl border border-white/10 w-fit">
+              <div className="flex items-center gap-3">
+                <TeamLogo team={market.homeTeam} size={24} />
+                <span className="text-sm text-gray-300 font-medium">{market.homeTeam}</span>
+                <span className="text-2xl font-[Outfit] font-bold text-white">{score.homeScore}</span>
+              </div>
+              <span className="text-xs text-gray-500 uppercase tracking-widest">—</span>
+              <div className="flex items-center gap-3">
+                <span className="text-2xl font-[Outfit] font-bold text-white">{score.awayScore}</span>
+                <span className="text-sm text-gray-300 font-medium">{market.awayTeam}</span>
+                <TeamLogo team={market.awayTeam} size={24} />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Pick Comparison Cards ────────────────────────────── */}
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 mb-3">
           <span className="text-xs uppercase tracking-widest text-gray-400 font-medium">Moneyline — Pick a Side</span>
           <div className="flex-1 h-px bg-white/5" />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           {/* Safe pick card */}
           <button
             onClick={() => selectPick('safe')}
-            className={`text-left p-5 rounded-2xl border-2 transition-all duration-300 ${
+            className={`text-left p-4 rounded-2xl border-2 transition-all duration-300 ${
               betType === 'safe'
                 ? 'border-emerald-500 bg-emerald-500/10 shadow-[0_0_20px_rgba(52,211,153,0.15)]'
                 : 'border-white/10 bg-[#111] hover:border-emerald-500/40'
             }`}
           >
-            <div className="flex justify-between items-start mb-4">
+            <div className="flex justify-between items-start mb-3">
               <div>
-                <span className="text-[10px] uppercase tracking-widest px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-sm">
+                <span className="text-lg font-[Outfit] font-bold uppercase tracking-widest px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-sm">
                   Safe
                 </span>
                 <h3 className="text-white font-[Outfit] font-bold text-xl mt-2 flex items-center gap-2">
@@ -172,15 +195,15 @@ export default function MarketDetailsPage() {
           {/* Risky pick card */}
           <button
             onClick={() => selectPick('risky')}
-            className={`text-left p-5 rounded-2xl border-2 transition-all duration-300 ${
+            className={`text-left p-4 rounded-2xl border-2 transition-all duration-300 ${
               betType === 'risky'
                 ? 'border-[var(--color-brand-gold)] bg-[var(--color-brand-gold)]/10 shadow-[0_0_20px_rgba(168,85,247,0.15)]'
                 : 'border-white/10 bg-[#111] hover:border-[var(--color-brand-gold)]/40'
             }`}
           >
-            <div className="flex justify-between items-start mb-4">
+            <div className="flex justify-between items-start mb-3">
               <div>
-                <span className="text-[10px] uppercase tracking-widest px-2 py-0.5 bg-[var(--color-brand-gold)]/10 text-[var(--color-brand-gold)] border border-[var(--color-brand-gold)]/20 rounded-sm">
+                <span className="text-lg font-[Outfit] font-bold uppercase tracking-widest px-3 py-1 bg-[var(--color-brand-gold)]/10 text-[var(--color-brand-gold)] border border-[var(--color-brand-gold)]/20 rounded-sm">
                   Risky
                 </span>
                 <h3 className="text-white font-[Outfit] font-bold text-xl mt-2 flex items-center gap-2">
@@ -214,19 +237,19 @@ export default function MarketDetailsPage() {
         </div>
 
         {!hasPick && (
-          <p className="text-center text-gray-400 text-sm mb-8 uppercase tracking-widest">
+          <p className="text-center text-gray-400 text-sm mb-4 uppercase tracking-widest">
             Tap a side above to make your pick
           </p>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* ── Left: Analysis ─────────────────────────────────── */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4">
 
             {/* Odds Comparison Table */}
             {market.bookmakerOdds && market.bookmakerOdds.length > 0 && (
-              <div className="bg-[#111] border border-white/5 p-5 md:p-8 rounded-2xl">
-                <h3 className="text-[var(--color-brand-gold)] text-sm uppercase tracking-widest font-medium flex items-center gap-2 mb-5">
+              <div className="bg-[#111] border border-white/5 p-4 md:p-6 rounded-2xl">
+                <h3 className="text-[var(--color-brand-gold)] text-sm uppercase tracking-widest font-medium flex items-center gap-2 mb-3">
                   <BarChart3 size={16} /> Odds by Sportsbook
                 </h3>
                 <div className="overflow-x-auto">
@@ -266,15 +289,15 @@ export default function MarketDetailsPage() {
             )}
 
             {/* Matchup Insight */}
-            <div className="bg-[#111] border border-white/5 p-5 md:p-8 rounded-2xl relative overflow-hidden">
+            <div className="bg-[#111] border border-white/5 p-4 md:p-6 rounded-2xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-64 h-64 bg-white/[0.02] rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
 
-              <h3 className="text-[var(--color-brand-gold)] text-sm uppercase tracking-widest font-medium flex items-center gap-2 mb-5">
+              <h3 className="text-[var(--color-brand-gold)] text-sm uppercase tracking-widest font-medium flex items-center gap-2 mb-3">
                 <TrendingUp size={16} /> Matchup Insight
               </h3>
 
               {/* Probability head-to-head bar */}
-              <div className="mb-6">
+              <div className="mb-3">
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-emerald-400 font-medium">{market.safeTeam} {fmtProb(safeProb)}</span>
                   <span className="text-[var(--color-brand-gold)] font-medium">{fmtProb(riskyProb)} {market.riskyTeam}</span>
@@ -286,9 +309,9 @@ export default function MarketDetailsPage() {
                 <p className="text-[10px] text-gray-400 mt-1">Implied probability based on current moneyline odds (includes vig)</p>
               </div>
 
-              <div className="p-4 bg-black/40 border border-[var(--color-brand-gold)]/10 rounded-lg flex gap-4">
-                <AlertTriangle className="text-[var(--color-brand-gold)] shrink-0 mt-0.5" size={20} />
-                <p className="text-sm text-gray-400 leading-relaxed">
+              <div className="p-3 bg-black/40 border border-[var(--color-brand-gold)]/10 rounded-lg flex gap-3">
+                <AlertTriangle className="text-[var(--color-brand-gold)] shrink-0 mt-0.5" size={18} />
+                <p className="text-sm text-gray-400 leading-snug">
                   <strong className="text-white font-medium block mb-1">What This Means</strong>
                   The {market.safeTeam} ({market.safeOdds}) are the <strong className="text-emerald-400">safe</strong> pick with a {fmtProb(safeProb)} implied win probability.
                   A $100 hypothetical on them returns ${safePayout}.
@@ -301,18 +324,18 @@ export default function MarketDetailsPage() {
 
           {/* ── Right: Calculator ───────────────────────────────── */}
           <div className="w-full h-fit">
-            <div className="bg-[#111] border border-white/10 rounded-2xl p-5 md:p-6 sticky top-24 shadow-2xl shadow-black">
+            <div className="bg-[#111] border border-white/10 rounded-2xl p-4 md:p-5 sticky top-24 shadow-2xl shadow-black">
               <h2 className="text-white font-[Outfit] text-xl font-bold mb-1">
                 WHAT-IF CALCULATOR
               </h2>
-              <p className="text-gray-400 text-xs mb-5 leading-relaxed">
+              <p className="text-gray-400 text-xs mb-3 leading-relaxed">
                 Hypothetical simulation only. No real money involved.
               </p>
 
               {hasPick ? (
                 <>
                   <div
-                    className={`p-4 rounded-xl border mb-4 ${
+                    className={`p-3 rounded-xl border mb-3 ${
                       isUnderdog
                         ? 'bg-[var(--color-brand-gold)]/10 border-[var(--color-brand-gold)]/30'
                         : 'bg-emerald-500/10 border-emerald-500/30'
@@ -336,7 +359,7 @@ export default function MarketDetailsPage() {
                   {/* Switch pick */}
                   <button
                     onClick={switchPick}
-                    className={`w-full mb-5 flex items-center justify-center gap-2 px-4 py-2 rounded-lg border text-xs font-medium tracking-wider uppercase transition-all duration-300 ${
+                    className={`w-full mb-3 flex items-center justify-center gap-2 px-4 py-2 rounded-lg border text-xs font-medium tracking-wider uppercase transition-all duration-300 ${
                       isUnderdog
                         ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/15'
                         : 'border-[var(--color-brand-gold)]/30 bg-[var(--color-brand-gold)]/5 text-[var(--color-brand-gold)] hover:bg-[var(--color-brand-gold)]/15'
@@ -346,7 +369,7 @@ export default function MarketDetailsPage() {
                     Switch to {altTeam} ({altOdds})
                   </button>
 
-                  <div className="space-y-4 mb-6">
+                  <div className="space-y-3 mb-4">
                     <div>
                       <label className="text-xs text-gray-400 uppercase tracking-widest font-medium mb-2 block">
                         Hypothetical Amount
@@ -354,10 +377,21 @@ export default function MarketDetailsPage() {
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">$</span>
                         <input
-                          type="number"
-                          min="0"
+                          type="text"
+                          inputMode="decimal"
+                          pattern="[0-9]*\.?[0-9]*"
                           value={wager}
-                          onChange={(e) => setWager(Math.max(0, Number(e.target.value)))}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/[^0-9.]/g, '');
+                            // Allow only one decimal point
+                            const parts = raw.split('.');
+                            const sanitized = parts.length > 2
+                              ? parts[0] + '.' + parts.slice(1).join('')
+                              : raw;
+                            // Strip leading zeros (but keep "0." for decimals)
+                            const cleaned = sanitized.replace(/^0+(\d)/, '$1');
+                            setWager(cleaned === '' ? '0' : cleaned);
+                          }}
                           className="w-full bg-black border border-white/10 rounded-lg py-3 pl-8 pr-4 text-white font-medium focus:outline-none focus:border-[var(--color-brand-gold)] transition-colors"
                         />
                       </div>
@@ -367,7 +401,7 @@ export default function MarketDetailsPage() {
                       {[10, 50, 100, 500].map((amt) => (
                         <button
                           key={amt}
-                          onClick={() => setWager(amt)}
+                          onClick={() => setWager(String(amt))}
                           className="py-2 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-[var(--color-brand-gold)]/30 rounded text-sm text-gray-300 font-medium transition-colors"
                         >
                           ${amt}
@@ -376,12 +410,12 @@ export default function MarketDetailsPage() {
                     </div>
                   </div>
 
-                  <div className="flex justify-between items-end mb-5 pb-5 border-b border-white/5">
+                  <div className="flex justify-between items-end mb-3 pb-3 border-b border-white/5">
                     <span className="text-gray-400 text-sm uppercase tracking-widest">Hypothetical Return</span>
                     <span className="text-3xl font-[Outfit] font-bold text-white">${payout}</span>
                   </div>
 
-                  <div className="p-4 bg-white/5 border border-white/10 rounded-xl text-center">
+                  <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-center">
                     <p className="text-xs text-gray-400 uppercase tracking-widest font-medium mb-1">Consultation Only</p>
                     <p className="text-[11px] text-gray-500 leading-relaxed">
                       Odds data sourced from FanDuel, DraftKings, and BetMGM for informational reference.
@@ -389,8 +423,8 @@ export default function MarketDetailsPage() {
                   </div>
                 </>
               ) : (
-                <div className="py-8 text-center">
-                  <p className="text-gray-400 text-sm mb-4">Select a pick above to use the calculator</p>
+                <div className="py-4 text-center">
+                  <p className="text-gray-400 text-sm mb-3">Select a pick above to use the calculator</p>
                   <div className="flex gap-3">
                     <button
                       onClick={() => selectPick('safe')}
@@ -408,7 +442,7 @@ export default function MarketDetailsPage() {
                 </div>
               )}
 
-              <p className="mt-5 text-[10px] text-gray-400 leading-relaxed text-center uppercase tracking-wide">
+              <p className="mt-3 text-[10px] text-gray-400 leading-relaxed text-center uppercase tracking-wide">
                 For entertainment and informational purposes only. Check your local laws before using any external platform.
               </p>
             </div>

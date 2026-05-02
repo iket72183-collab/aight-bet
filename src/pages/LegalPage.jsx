@@ -15,7 +15,7 @@ export default function LegalPage() {
   }, [hash]);
 
   return (
-    <div className="flex flex-col w-full min-h-screen bg-[#0a0a0a] pt-24 px-6 md:px-12 pb-20 relative overflow-hidden">
+    <div className="flex flex-col w-full min-h-screen bg-[#0a0a0a] pt-4 px-6 md:px-12 pb-16 relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-[var(--color-brand-gold)]/5 to-transparent pointer-events-none" />
 
       <div className="max-w-4xl mx-auto w-full relative z-10 text-gray-300">

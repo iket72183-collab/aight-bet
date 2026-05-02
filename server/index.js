@@ -25,6 +25,14 @@ if (!ODDS_API_KEY) {
 app.use(cors());
 app.use(express.json());
 
+/** Sport key mapping — shared by odds and scores endpoints */
+const SPORT_KEYS = {
+  NBA: 'basketball_nba',
+  MLB: 'baseball_mlb',
+  NFL: 'americanfootball_nfl',
+  MMA: 'mma_mixed_martial_arts',
+};
+
 /**
  * Simple in-memory cache to avoid hammering the API.
  * Each league gets cached for CACHE_TTL_MS after a successful fetch.
@@ -32,6 +40,10 @@ app.use(express.json());
  */
 const cache = {};
 const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
+
+/** Separate scores cache — shorter TTL for live score freshness */
+const scoresCache = {};
+const SCORES_CACHE_TTL_MS = 60 * 1000; // 1 minute
 
 /**
  * Rate-limit manual refreshes: 1 request per 30s per IP per league.
@@ -73,15 +85,6 @@ app.get('/api/odds/:league', async (req, res) => {
   }
 
   const league = req.params.league.toUpperCase();
-
-  // Sport key mapping (same as the frontend had)
-  const SPORT_KEYS = {
-    NBA: 'basketball_nba',
-    MLB: 'baseball_mlb',
-    NFL: 'americanfootball_nfl',
-    MMA: 'mma_mixed_martial_arts',
-  };
-
   const sportKey = SPORT_KEYS[league];
   if (!sportKey) {
     return res.status(400).json({ error: `Unknown league: ${league}` });
@@ -164,6 +167,77 @@ app.get('/api/odds/:league', async (req, res) => {
   } catch (err) {
     console.error(`[server] Fetch failed for ${league}:`, err.message);
     return res.status(502).json({ error: 'Failed to reach Odds API', detail: err.message });
+  }
+});
+
+/**
+ * GET /api/scores/:league
+ *
+ * Proxies The Odds API scores endpoint for live game scores.
+ * Returns scores for live and recently completed games.
+ * Cached for 60s to conserve quota (1 request per call on free tier).
+ */
+app.get('/api/scores/:league', async (req, res) => {
+  if (!ODDS_API_KEY) {
+    return res.status(503).json({ error: 'API key not configured on server' });
+  }
+
+  const league = req.params.league.toUpperCase();
+  const sportKey = SPORT_KEYS[league];
+  if (!sportKey) {
+    return res.status(400).json({ error: `Unknown league: ${league}` });
+  }
+
+  // Serve from cache if fresh
+  const cached = scoresCache[league];
+  if (cached && Date.now() - cached.timestamp < SCORES_CACHE_TTL_MS) {
+    return res.json({
+      data: cached.data,
+      cached: true,
+      cachedAt: new Date(cached.timestamp).toISOString(),
+    });
+  }
+
+  const params = new URLSearchParams({
+    apiKey: ODDS_API_KEY,
+    daysFrom: '1',
+  });
+
+  try {
+    const upstream = await fetch(`${ODDS_BASE}/sports/${sportKey}/scores/?${params}`);
+
+    if (!upstream.ok) {
+      const text = await upstream.text();
+      console.error(`[server] Scores API ${league} error ${upstream.status}: ${text}`);
+      return res.status(upstream.status).json({
+        error: `Scores API returned ${upstream.status}`,
+        detail: text,
+      });
+    }
+
+    const data = await upstream.json();
+    const quotaUsed = upstream.headers.get('x-requests-used');
+    const quotaRemaining = upstream.headers.get('x-requests-remaining');
+
+    if (quotaRemaining) {
+      console.info(`[server] Scores API quota: ${quotaUsed} used, ${quotaRemaining} remaining`);
+    }
+
+    // Cache the result
+    scoresCache[league] = {
+      data,
+      timestamp: Date.now(),
+    };
+
+    return res.json({
+      data,
+      cached: false,
+      quotaUsed,
+      quotaRemaining,
+    });
+  } catch (err) {
+    console.error(`[server] Scores fetch failed for ${league}:`, err.message);
+    return res.status(502).json({ error: 'Failed to reach Scores API', detail: err.message });
   }
 });
 

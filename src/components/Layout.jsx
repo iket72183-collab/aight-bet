@@ -27,8 +27,8 @@ export default function Layout({ children }) {
       </main>
 
       {/* Footer */}
-      <footer className="w-full bg-[#050505] border-t border-white/5 py-12">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
+      <footer className="w-full bg-[#050505] border-t border-white/5 py-6">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex flex-col gap-2">
             <p className="text-gray-400 text-sm tracking-widest uppercase mb-1">
               &copy; 2026 Aight Bet. All rights reserved.

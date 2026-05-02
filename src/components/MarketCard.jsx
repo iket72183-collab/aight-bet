@@ -6,7 +6,7 @@ import TeamLogo from './TeamLogo';
  * Reusable market card used on the landing page and active markets grid.
  * Displays league info, live status, and favorite/underdog pick options.
  */
-export default function MarketCard({ market }) {
+export default function MarketCard({ market, score }) {
   const navigate = useNavigate();
 
   const goToMarket = (selectedType) => {
@@ -41,6 +41,23 @@ export default function MarketCard({ market }) {
         )}
       </div>
 
+      {/* Live scoreboard */}
+      {score && market.isLive && (
+        <div className="flex items-center justify-center gap-4 mb-4 py-3 bg-black/40 rounded-xl border border-white/5">
+          <div className="flex items-center gap-2 text-right">
+            <TeamLogo team={market.homeTeam} size={18} />
+            <span className="text-sm text-gray-300 font-medium truncate max-w-[80px]">{market.homeTeam?.split(' ').pop()}</span>
+            <span className="text-xl font-[Outfit] font-bold text-white">{score.homeScore}</span>
+          </div>
+          <span className="text-xs text-gray-500 uppercase tracking-widest">vs</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xl font-[Outfit] font-bold text-white">{score.awayScore}</span>
+            <span className="text-sm text-gray-300 font-medium truncate max-w-[80px]">{market.awayTeam?.split(' ').pop()}</span>
+            <TeamLogo team={market.awayTeam} size={18} />
+          </div>
+        </div>
+      )}
+
       {/* Bet type label */}
       <div className="flex items-center gap-2 mb-4">
         <span className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">Moneyline</span>
@@ -57,7 +74,7 @@ export default function MarketCard({ market }) {
           <div className="flex items-center gap-2">
             <TeamLogo team={market.safeTeam} size={20} />
             <span className="font-semibold text-gray-200">{market.safeTeam}</span>
-            <span className="text-[9px] uppercase tracking-widest px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-sm">
+            <span className="text-xs uppercase tracking-widest px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-sm font-semibold">
               Safe
             </span>
           </div>
@@ -74,7 +91,7 @@ export default function MarketCard({ market }) {
           <div className="flex items-center gap-2">
             <TeamLogo team={market.riskyTeam} size={20} />
             <span className="font-semibold text-gray-200">{market.riskyTeam}</span>
-            <span className="text-[9px] uppercase tracking-widest px-1.5 py-0.5 bg-[var(--color-brand-gold)]/10 text-[var(--color-brand-gold)] border border-[var(--color-brand-gold)]/20 rounded-sm">
+            <span className="text-xs uppercase tracking-widest px-2 py-0.5 bg-[var(--color-brand-gold)]/10 text-[var(--color-brand-gold)] border border-[var(--color-brand-gold)]/20 rounded-sm font-semibold">
               Risky
             </span>
           </div>
