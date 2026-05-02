@@ -27,6 +27,29 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const CRON_SECRET = process.env.CRON_SECRET;
 
+// Flexible configuration via Env Vars
+const csvEnv = (value, fallback) =>
+  (value || fallback)
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const SPORT_KEYS = {
+  NBA: 'basketball_nba',
+  MLB: 'baseball_mlb',
+  NFL: 'americanfootball_nfl',
+  MMA: 'mma_mixed_martial_arts',
+  NHL: 'icehockey_nhl',
+  MLS: 'soccer_usa_mls',
+};
+
+const SYNC_SPORTS = csvEnv(
+  process.env.SYNC_SPORTS,
+  'americanfootball_nfl,basketball_nba,baseball_mlb,icehockey_nhl,soccer_usa_mls'
+);
+const PREFERRED_BOOKMAKERS = csvEnv(process.env.PREFERRED_BOOKMAKERS, 'fanduel,draftkings,betmgm').join(',');
+const CACHE_TTL_MS = (parseInt(process.env.CACHE_TTL_MINUTES) || 15) * 60 * 1000;
+
 if (!ODDS_API_KEY) {
   console.warn('[server] WARNING: ODDS_API_KEY not set — API proxy will return 503');
 }
@@ -41,26 +64,9 @@ if (!supabase) {
   console.warn('[server] WARNING: Supabase not configured — sync/picks endpoints disabled');
 }
 
-// ─── Sport Key Mapping ──────────────────────────────────────────────────────
-
-const SPORT_KEYS = {
-  NBA: 'basketball_nba',
-  MLB: 'baseball_mlb',
-  NFL: 'americanfootball_nfl',
-  MMA: 'mma_mixed_martial_arts',
-};
-
-const SYNC_SPORTS = [
-  'americanfootball_nfl',
-  'basketball_nba',
-  'baseball_mlb',
-  'icehockey_nhl',
-  'soccer_usa_mls',
-];
-
-// ─── In-Memory Cache ────────────────────────────────────────────────────────
-
-const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+if (!CRON_SECRET) {
+  console.warn('[server] WARNING: CRON_SECRET not set — /api/sync will refuse requests');
+}
 
 const memCache = {
   _store: {},
@@ -278,9 +284,12 @@ app.post('/api/sync', async (req, res) => {
   if (!supabase) {
     return res.status(503).json({ error: 'Supabase not configured' });
   }
+  if (!CRON_SECRET) {
+    return res.status(503).json({ error: 'Cron secret not configured' });
+  }
 
   const secret = req.headers['x-cron-secret'];
-  if (CRON_SECRET && secret !== CRON_SECRET) {
+  if (secret !== CRON_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -386,7 +395,7 @@ app.get('/api/odds/:league', async (req, res) => {
   }
 
   // Fetch from API (deduplicated)
-  const bookmakers = league !== 'MMA' ? 'fanduel,draftkings,betmgm' : undefined;
+  const bookmakers = league !== 'MMA' ? PREFERRED_BOOKMAKERS : undefined;
 
   try {
     const result = await dedupedFetch(cacheKey, () => fetchOddsFromAPI(sportKey, bookmakers));

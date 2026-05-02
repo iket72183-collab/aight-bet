@@ -9,4 +9,16 @@ services:
       - key: NODE_ENV
         value: production
       - key: ODDS_API_KEY
-        sync: false  # Render will prompt you to enter this manually
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+      - key: SYNC_SPORTS
+        value: americanfootball_nfl,basketball_nba,baseball_mlb,icehockey_nhl,soccer_usa_mls
+      - key: PREFERRED_BOOKMAKERS
+        value: fanduel,draftkings,betmgm
+      - key: CACHE_TTL_MINUTES
+        value: "15"

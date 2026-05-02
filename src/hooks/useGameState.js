@@ -12,6 +12,13 @@ import { cacheSet, cacheGet } from '../lib/offlineCache';
 
 const PROXY_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3001';
 const POLL_INTERVAL_MS = 30 * 1000; // 30 seconds — ESPN data is fresher
+const EMPTY_GAME_STATES = new Map();
+
+function buildMarketsKey(markets) {
+  return markets
+    .map((market) => `${market.id}:${market.homeTeam || ''}:${market.awayTeam || ''}`)
+    .join('|');
+}
 
 /**
  * Normalize a team name for fuzzy matching.
@@ -77,6 +84,13 @@ export function useGameState(league, markets, hasLiveGames = false) {
   const [gameStates, setGameStates] = useState(new Map());
   const intervalRef = useRef(null);
   const controllerRef = useRef(null);
+  const marketsRef = useRef(markets);
+  const marketsKey = buildMarketsKey(markets);
+  const hasMarkets = marketsKey.length > 0;
+
+  useEffect(() => {
+    marketsRef.current = markets;
+  }, [markets]);
 
   const load = useCallback(async () => {
     if (controllerRef.current) controllerRef.current.abort();
@@ -89,7 +103,7 @@ export function useGameState(league, markets, hasLiveGames = false) {
 
       const map = new Map();
       for (const game of espnGames) {
-        const marketId = matchGame(game, markets);
+        const marketId = matchGame(game, marketsRef.current);
         if (marketId) {
           map.set(marketId, {
             detail: game.detail,
@@ -111,15 +125,14 @@ export function useGameState(league, markets, hasLiveGames = false) {
         setGameStates(new Map(cached.data));
       }
     }
-  }, [league, markets]);
+  }, [league]);
 
   useEffect(() => {
-    if (!hasLiveGames || markets.length === 0) {
-      setGameStates(new Map());
+    if (!hasLiveGames || !hasMarkets) {
       return;
     }
 
-    load();
+    const initialLoadId = setTimeout(load, 0);
     intervalRef.current = setInterval(load, POLL_INTERVAL_MS);
 
     const onVisibility = () => {
@@ -134,11 +147,12 @@ export function useGameState(league, markets, hasLiveGames = false) {
     document.addEventListener('visibilitychange', onVisibility);
 
     return () => {
+      clearTimeout(initialLoadId);
       if (controllerRef.current) { controllerRef.current.abort(); controllerRef.current = null; }
       if (intervalRef.current) clearInterval(intervalRef.current);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [league, hasLiveGames, markets, load]);
+  }, [league, hasLiveGames, hasMarkets, marketsKey, load]);
 
-  return { gameStates };
+  return { gameStates: hasLiveGames && hasMarkets ? gameStates : EMPTY_GAME_STATES };
 }

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, TrendingUp, AlertTriangle, ArrowLeftRight, BarChart3 } from 'lucide-react';
 import { getMarketById, calculatePayout } from '../data/markets';
@@ -46,7 +46,7 @@ export default function MarketDetailsPage() {
   const score = market ? scores.get(market.id) : null;
 
   // ESPN game state (period, clock) — only polls when live
-  const marketsArr = useMemo(() => (market ? [market] : []), [market]);
+  const marketsArr = market ? [market] : [];
   const { gameStates } = useGameState(market?.league || 'NBA', marketsArr, Boolean(market?.isLive));
   const gameState = market ? gameStates.get(market.id) : null;
 
