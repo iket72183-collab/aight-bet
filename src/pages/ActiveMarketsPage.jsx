@@ -1,12 +1,12 @@
-import { useState, useMemo, useRef, useCallback } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import MarketCard from '../components/MarketCard';
 import LeagueLogo from '../components/LeagueLogo';
 import PullToRefresh from '../components/PullToRefresh';
 import { leagueTabs, leagueConfig } from '../data/markets';
-import { useMarkets, filterFinishedGames } from '../hooks/useMarkets';
+import { useMarkets } from '../hooks/useMarkets';
 import { useScores } from '../hooks/useScores';
 import { useGameState } from '../hooks/useGameState';
-import { getLocalDateString, formatDateGroupLabel } from '../lib/timezone';
+import { formatDateGroupLabel } from '../lib/timezone';
 import { Loader2, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 
 /**
@@ -52,13 +52,21 @@ const panelId = 'markets-tabpanel';
 export default function ActiveMarketsPage() {
   const [activeTab, setActiveTab] = useState('NBA');
   const { markets: rawMarkets, isLive, loading, error, refetch, lastUpdated, canRefresh } = useMarkets(activeTab);
+  const [currentTime, setCurrentTime] = useState(null);
+
+  useEffect(() => {
+    const updateCurrentTime = () => setCurrentTime(Date.now());
+    updateCurrentTime();
+    const intervalId = setInterval(updateCurrentTime, 60 * 1000);
+    return () => clearInterval(intervalId);
+  }, []);
+
   // Fetch scores when any event has started (live or potentially completed) so we can filter finished ones
   const hasStartedGames = useMemo(() => {
-    const now = Date.now();
-    return rawMarkets.some((m) => m.commenceTime && new Date(m.commenceTime).getTime() <= now);
-  }, [rawMarkets]);
+    if (currentTime === null) return rawMarkets.some((m) => m.isLive);
+    return rawMarkets.some((m) => m.commenceTime && new Date(m.commenceTime).getTime() <= currentTime);
+  }, [rawMarkets, currentTime]);
   const { scores } = useScores(activeTab, hasStartedGames);
-  const hasLiveGames = useMemo(() => rawMarkets.some((m) => m.isLive), [rawMarkets]);
   // Fetch gamestate when events have started — needed to detect completed MMA/UFC events
   const { gameStates } = useGameState(activeTab, rawMarkets, hasStartedGames);
   const [refreshing, setRefreshing] = useState(false);
