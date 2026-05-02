@@ -12,6 +12,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
+import { hasMmaEventStarted } from '../src/data/mmaEvents.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -158,6 +159,14 @@ async function fetchScoresFromAPI(sportKey) {
     throw new Error(`Scores API ${sportKey} error ${res.status}: ${text}`);
   }
   return { data: await res.json(), quotaUsed: used, quotaRemaining: remaining };
+}
+
+function filterStaleOddsEvents(events, league) {
+  if (league !== 'MMA') return events;
+
+  return events.filter(
+    (event) => !hasMmaEventStarted(event.commence_time, event.home_team, event.away_team)
+  );
 }
 
 // ─── Pick Classification (for cron sync) ────────────────────────────────────
@@ -399,8 +408,9 @@ app.get('/api/odds/:league', async (req, res) => {
   if (!forceRefresh) {
     const cached = memCache.get(cacheKey);
     if (cached) {
+      const data = filterStaleOddsEvents(cached.data, league);
       return res.json({
-        data: cached.data,
+        data,
         cached: true,
         cachedAt: new Date(cached.timestamp).toISOString(),
         quotaUsed: cached.quotaUsed,
@@ -414,15 +424,16 @@ app.get('/api/odds/:league', async (req, res) => {
 
   try {
     const result = await dedupedFetch(cacheKey, () => fetchOddsFromAPI(sportKey, bookmakers));
+    const data = filterStaleOddsEvents(result.data, league);
     memCache.set(cacheKey, {
-      data: result.data,
+      data,
       timestamp: Date.now(),
       quotaUsed: result.quotaUsed,
       quotaRemaining: result.quotaRemaining,
     });
 
     return res.json({
-      data: result.data,
+      data,
       cached: false,
       quotaUsed: result.quotaUsed,
       quotaRemaining: result.quotaRemaining,
