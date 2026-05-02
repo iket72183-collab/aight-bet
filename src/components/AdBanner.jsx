@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
 
 /**
@@ -15,7 +15,6 @@ const AD_UNIT_ID = 'ca-app-pub-9453978833720195/2002889569';
 const TEST_AD_UNIT_ID = 'ca-app-pub-3940256099942544/9214589741';
 
 export default function AdBanner() {
-  const [adLoaded, setAdLoaded] = useState(false);
   const initialized = useRef(false);
 
   useEffect(() => {
@@ -35,33 +34,26 @@ export default function AdBanner() {
         });
 
         // Listen for ad events
-        const loadedListener = AdMob.addListener(
-          BannerAdPluginEvents.Loaded,
-          () => setAdLoaded(true)
-        );
-
         const failedListener = AdMob.addListener(
           BannerAdPluginEvents.FailedToLoad,
           (error) => {
             console.warn('[AdBanner] Failed to load:', error);
-            setAdLoaded(false);
           }
         );
 
         cleanup = () => {
-          loadedListener?.remove?.();
           failedListener?.remove?.();
         };
 
-        // Show the banner — noBorder: true shrinks the WebView so the
-        // ad sits flush at the bottom edge without overlapping content.
+        // Android renders this as a native AdView. MainActivity overrides the
+        // plugin's Android 15+ safe-area margin so the banner sits at the
+        // physical bottom edge instead of above the navigation inset.
         await AdMob.showBanner({
           adId: AD_UNIT_ID,
           adSize: BannerAdSize.ADAPTIVE_BANNER,
           position: BannerAdPosition.BOTTOM_CENTER,
           isTesting: false,
           margin: 0,
-          noBorder: true,
         });
       } catch (err) {
         console.error('[AdBanner] AdMob init error:', err);
@@ -77,8 +69,8 @@ export default function AdBanner() {
     };
   }, []);
 
-  // On native, AdMob renders its own native view below the WebView —
-  // no DOM element needed here. The Layout spacer div handles clearance.
+  // On native, AdMob renders its own native view. The Layout spacer div
+  // handles content clearance; no DOM overlay is needed.
   if (Capacitor.isNativePlatform()) {
     return null;
   }
