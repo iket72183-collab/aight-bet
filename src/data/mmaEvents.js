@@ -14,6 +14,9 @@
  *    on the card, just 2-3 recognizable names.
  * 4. Set `org` to the organization abbreviation and `event` to the
  *    full event name.
+ * 5. If The Odds API has bad per-fight times for a card, add `startsAt`
+ *    with the real card start time in UTC. MMA cards are hidden as soon
+ *    as that mapped start time passes.
  *
  * Matching logic: for each MMA event from the API, we check if any
  * fighter name contains one of the listed fighter strings. If a match
@@ -41,12 +44,14 @@ const MMA_EVENTS = [
     date: '2026-05-02',
     org: 'UFC',
     event: 'UFC Perth',
+    startsAt: '2026-05-02T11:00:00Z',
     fighters: ['Dariush', 'Salkilld', 'Meerschaert', 'Malkoun'],
   },
   {
     date: '2026-05-03',
     org: 'UFC',
     event: 'UFC Perth',
+    startsAt: '2026-05-02T11:00:00Z',
     fighters: ['Maddalena', 'Prates'],
   },
   {
@@ -95,15 +100,7 @@ const MMA_EVENTS = [
   },
 ];
 
-/**
- * Look up the MMA organization and event name for a given API event.
- *
- * @param {string} commenceTime - ISO date string from the API
- * @param {string} homeTeam - Fighter name (home)
- * @param {string} awayTeam - Fighter name (away)
- * @returns {{ org: string, event: string } | null}
- */
-export function lookupMmaEvent(commenceTime, homeTeam, awayTeam) {
+function findMmaEventCard(commenceTime, homeTeam, awayTeam) {
   if (!commenceTime) return null;
 
   const eventDate = commenceTime.slice(0, 10); // "YYYY-MM-DD"
@@ -120,20 +117,47 @@ export function lookupMmaEvent(commenceTime, homeTeam, awayTeam) {
       return homeLower.includes(needle) || awayLower.includes(needle);
     });
 
-    if (matched) {
-      return { org: card.org, event: card.event };
-    }
+    if (matched) return card;
   }
 
-  // No match — check if date alone matches a card (same-night fights
-  // are almost certainly on the same card even if fighter names weren't listed)
-  for (const card of MMA_EVENTS) {
-    if (card.date === eventDate) {
-      return { org: card.org, event: card.event };
-    }
-  }
+  // No fighter match — date-only match is still useful because many
+  // same-card fights are missing from the compact manual fighter list.
+  return MMA_EVENTS.find((card) => card.date === eventDate) || null;
+}
 
-  return null;
+/**
+ * Look up the MMA organization and event name for a given API event.
+ *
+ * @param {string} commenceTime - ISO date string from the API
+ * @param {string} homeTeam - Fighter name (home)
+ * @param {string} awayTeam - Fighter name (away)
+ * @returns {{ org: string, event: string } | null}
+ */
+export function lookupMmaEvent(commenceTime, homeTeam, awayTeam) {
+  const card = findMmaEventCard(commenceTime, homeTeam, awayTeam);
+  if (!card) return null;
+  return { org: card.org, event: card.event };
+}
+
+/**
+ * Determine whether an MMA event should be considered started/expired.
+ * Falls back to the API's commence_time, but uses a mapped card start
+ * when the API keeps stale fights around with bad placeholder times.
+ *
+ * @param {string} commenceTime - ISO date string from the API
+ * @param {string} homeTeam - Fighter name (home)
+ * @param {string} awayTeam - Fighter name (away)
+ * @param {number} now - timestamp in milliseconds
+ * @returns {boolean}
+ */
+export function hasMmaEventStarted(commenceTime, homeTeam, awayTeam, now = Date.now()) {
+  if (!commenceTime) return false;
+
+  const card = findMmaEventCard(commenceTime, homeTeam, awayTeam);
+  const cutoffTime = card?.startsAt || commenceTime;
+  const cutoffMs = new Date(cutoffTime).getTime();
+
+  return Number.isFinite(cutoffMs) && cutoffMs <= now;
 }
 
 export default MMA_EVENTS;

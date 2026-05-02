@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { fetchOddsForLeague } from '../lib/oddsApi';
 import { allMarkets as staticMarkets } from '../data/markets';
 import { cacheSet, cacheGet } from '../lib/offlineCache';
+import { hasMmaEventStarted } from '../data/mmaEvents';
 
 /**
  * Default auto-refresh interval: 5 minutes.
@@ -19,7 +20,7 @@ const MANUAL_REFRESH_COOLDOWN_MS = 30 * 1000;
  * Used as a fallback when scores data isn't available.
  *
  * MMA is handled separately — individual bouts are short, so any fight
- * whose commence_time has passed is treated as finished.
+ * whose API commence_time or mapped card start has passed is treated as finished.
  */
 const GAME_DURATION_HOURS = {
   NBA: 3,
@@ -37,8 +38,9 @@ const MAX_EVENT_AGE_MS = 12 * 60 * 60 * 1000;
  *
  * MMA special case: individual fights are short (~25 min max), and
  * The Odds API doesn't mark them completed. Any MMA event whose
- * commence_time has passed is removed — they're either done or in
- * progress (and we don't show in-progress MMA bouts as "upcoming").
+ * commence_time or mapped card start has passed is removed — they're
+ * either done or in progress (and we don't show in-progress MMA bouts
+ * as "upcoming").
  *
  * @param {Array} markets - market objects with id and commenceTime
  * @param {string} league - league key (NBA, MLB, etc.)
@@ -54,10 +56,12 @@ export function filterFinishedGames(markets, league, completedIds) {
     if (!m.commenceTime) return true;
     const elapsed = now - new Date(m.commenceTime).getTime();
 
-    // MMA: once the scheduled time passes, the fight is over.
-    // The Odds API keeps returning stale MMA events for days — this is
-    // the only reliable way to clear them since scores don't cover MMA.
-    if (league === 'MMA' && elapsed > 0) return false;
+    // MMA: once the scheduled time or mapped card start passes, hide it.
+    // The Odds API can keep returning stale fights with bad placeholder
+    // times — the card map lets us clear known cards using real start times.
+    if (league === 'MMA' && hasMmaEventStarted(m.commenceTime, m.homeTeam, m.awayTeam, now)) {
+      return false;
+    }
 
     // Team sports: hard cutoff for very stale events
     if (elapsed > MAX_EVENT_AGE_MS) return false;
