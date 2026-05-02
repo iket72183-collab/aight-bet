@@ -53,13 +53,15 @@ export default function AdBanner() {
           failedListener?.remove?.();
         };
 
-        // Show the banner
+        // Show the banner — noBorder: true shrinks the WebView so the
+        // ad sits flush at the bottom edge without overlapping content.
         await AdMob.showBanner({
           adId: AD_UNIT_ID,
           adSize: BannerAdSize.ADAPTIVE_BANNER,
           position: BannerAdPosition.BOTTOM_CENTER,
           isTesting: false,
           margin: 0,
+          noBorder: true,
         });
       } catch (err) {
         console.error('[AdBanner] AdMob init error:', err);
@@ -75,17 +77,10 @@ export default function AdBanner() {
     };
   }, []);
 
-  // On native, AdMob renders its own native view — we just need
-  // a spacer so page content isn't hidden behind the banner.
+  // On native, AdMob renders its own native view below the WebView —
+  // no DOM element needed here. The Layout spacer div handles clearance.
   if (Capacitor.isNativePlatform()) {
-    return (
-      <div
-        className="fixed bottom-0 left-0 right-0 z-50"
-        style={{ height: adLoaded ? 50 : 0 }}
-        role="complementary"
-        aria-label="Advertisement"
-      />
-    );
+    return null;
   }
 
   // Web fallback — mock banner for development

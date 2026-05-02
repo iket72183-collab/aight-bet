@@ -62,11 +62,11 @@ export default function Layout({ children }) {
         </div>
       </footer>
 
-      {/* Bottom spacing so content isn't hidden behind the ad banner */}
-      <div className="h-[50px]" />
+      {/* Bottom spacing for web mock banner — native uses noBorder which resizes WebView automatically */}
+      <div className="h-[60px] shrink-0" aria-hidden="true" />
 
-      <AdBanner />
       <AgeGateModal />
+      <AdBanner />
     </div>
   );
 }
