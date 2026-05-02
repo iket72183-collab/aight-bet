@@ -5,8 +5,8 @@ import { cacheSet, cacheGet } from '../lib/offlineCache';
 
 /**
  * Default auto-refresh interval: 5 minutes.
- * The server caches responses for 2 min, so even with multiple tabs
- * the API is only hit once per 2 min per league.
+ * The server caches responses for 15 min, so even with multiple tabs
+ * the API is protected from burst traffic per league.
  */
 const DEFAULT_REFRESH_MS = 5 * 60 * 1000;
 
@@ -17,30 +17,34 @@ const MANUAL_REFRESH_COOLDOWN_MS = 30 * 1000;
  * Estimated game durations by league (in hours).
  * Events that started longer ago than this are filtered out as "likely finished."
  * Used as a fallback when scores data isn't available.
+ *
+ * MMA is handled separately — individual bouts are short, so any fight
+ * whose commence_time has passed is treated as finished.
  */
 const GAME_DURATION_HOURS = {
   NBA: 3,
   MLB: 4,
   NFL: 4,
-  MMA: 8, // UFC cards can span prelims through main event
 };
 
-/** Hard ceiling: no event in any sport lasts more than 12 hours */
+/** Hard ceiling for team sports: nothing lasts more than 12 hours */
 const MAX_EVENT_AGE_MS = 12 * 60 * 60 * 1000;
 
 /**
  * Filter out events that have likely ended.
  * Uses scores completion data when available, falls back to
  * commence_time + estimated duration as a rough heuristic.
- * Hard cutoff: anything that started 12+ hours ago is always removed
- * (catches stale API data that the scores endpoint doesn't cover).
+ *
+ * MMA special case: individual fights are short (~25 min max), and
+ * The Odds API doesn't mark them completed. Any MMA event whose
+ * commence_time has passed is removed — they're either done or in
+ * progress (and we don't show in-progress MMA bouts as "upcoming").
  *
  * @param {Array} markets - market objects with id and commenceTime
  * @param {string} league - league key (NBA, MLB, etc.)
  * @param {Map} [completedIds] - Set or Map of event IDs confirmed completed by scores API
  */
 export function filterFinishedGames(markets, league, completedIds) {
-  const durationMs = (GAME_DURATION_HOURS[league] || 4) * 60 * 60 * 1000;
   const now = Date.now();
 
   return markets.filter((m) => {
@@ -50,9 +54,16 @@ export function filterFinishedGames(markets, league, completedIds) {
     if (!m.commenceTime) return true;
     const elapsed = now - new Date(m.commenceTime).getTime();
 
-    // Hard cutoff — the Odds API can return stale events for days
+    // MMA: once the scheduled time passes, the fight is over.
+    // The Odds API keeps returning stale MMA events for days — this is
+    // the only reliable way to clear them since scores don't cover MMA.
+    if (league === 'MMA' && elapsed > 0) return false;
+
+    // Team sports: hard cutoff for very stale events
     if (elapsed > MAX_EVENT_AGE_MS) return false;
 
+    // Team sports: estimate based on typical game length
+    const durationMs = (GAME_DURATION_HOURS[league] || 4) * 60 * 60 * 1000;
     return elapsed < durationMs;
   });
 }
