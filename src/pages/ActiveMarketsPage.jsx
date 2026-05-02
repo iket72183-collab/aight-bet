@@ -1,9 +1,11 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import MarketCard from '../components/MarketCard';
 import LeagueLogo from '../components/LeagueLogo';
+import PullToRefresh from '../components/PullToRefresh';
 import { leagueTabs, leagueConfig } from '../data/markets';
 import { useMarkets } from '../hooks/useMarkets';
 import { useScores } from '../hooks/useScores';
+import { useGameState } from '../hooks/useGameState';
 import { Loader2, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 
 /**
@@ -66,6 +68,7 @@ export default function ActiveMarketsPage() {
   const { markets, isLive, loading, error, refetch, lastUpdated, canRefresh } = useMarkets(activeTab);
   const hasLiveGames = useMemo(() => markets.some((m) => m.isLive), [markets]);
   const { scores } = useScores(activeTab, hasLiveGames);
+  const { gameStates } = useGameState(activeTab, markets, hasLiveGames);
   const [refreshing, setRefreshing] = useState(false);
   const tabRefs = useRef({});
 
@@ -75,6 +78,14 @@ export default function ActiveMarketsPage() {
     await refetch();
     setRefreshing(false);
   };
+
+  /** Pull-to-refresh handler — reuses the same refetch logic */
+  const handlePullRefresh = useCallback(async () => {
+    if (!canRefresh) return;
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  }, [canRefresh, refetch]);
 
   // Roving-tabindex keyboard nav — left/right cycle tabs, home/end jump to ends.
   const handleTabKeyDown = (e) => {
@@ -96,6 +107,7 @@ export default function ActiveMarketsPage() {
   const config = leagueConfig[activeTab] || { label: activeTab };
 
   return (
+    <PullToRefresh onRefresh={handlePullRefresh} disabled={!canRefresh || refreshing}>
     <div className="flex flex-col w-full min-h-[90vh] bg-[#0a0a0a] pt-4 px-6 md:px-12 pb-16 relative overflow-hidden">
       {/* Background glow */}
       <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-[var(--color-brand-gold)]/5 blur-[150px] rounded-full pointer-events-none" />
@@ -214,7 +226,7 @@ export default function ActiveMarketsPage() {
                   {/* Cards grid */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {dateMarkets.map((market) => (
-                      <MarketCard key={market.id} market={market} score={scores.get(market.id)} />
+                      <MarketCard key={market.id} market={market} score={scores.get(market.id)} gameState={gameStates.get(market.id)} />
                     ))}
                   </div>
                 </section>
@@ -231,5 +243,6 @@ export default function ActiveMarketsPage() {
         </div>
       </div>
     </div>
+    </PullToRefresh>
   );
 }

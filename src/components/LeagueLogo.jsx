@@ -5,7 +5,7 @@
 
 function NBALogo({ size = 20, className = '' }) {
   return (
-    <svg viewBox="0 0 24 24" width={size} height={size} className={className} fill="currentColor">
+    <svg viewBox="0 0 24 24" width={size} height={size} className={className} fill="currentColor" aria-hidden="true">
       {/* Basketball silhouette */}
       <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
       <path d="M12 2C12 2 12 22 12 22" stroke="currentColor" strokeWidth="1.5" fill="none" />
@@ -18,7 +18,7 @@ function NBALogo({ size = 20, className = '' }) {
 
 function MLBLogo({ size = 20, className = '' }) {
   return (
-    <svg viewBox="0 0 24 24" width={size} height={size} className={className} fill="currentColor">
+    <svg viewBox="0 0 24 24" width={size} height={size} className={className} fill="currentColor" aria-hidden="true">
       {/* Baseball diamond */}
       <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
       <path d="M5 9C7 10 8 12 7 15" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
@@ -31,7 +31,7 @@ function MLBLogo({ size = 20, className = '' }) {
 
 function NFLLogo({ size = 20, className = '' }) {
   return (
-    <svg viewBox="0 0 24 24" width={size} height={size} className={className} fill="currentColor">
+    <svg viewBox="0 0 24 24" width={size} height={size} className={className} fill="currentColor" aria-hidden="true">
       {/* Football shape */}
       <ellipse cx="12" cy="12" rx="10" ry="6.5" fill="none" stroke="currentColor" strokeWidth="2" transform="rotate(-30 12 12)" />
       <path d="M8 8L16 16" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
@@ -44,7 +44,7 @@ function NFLLogo({ size = 20, className = '' }) {
 
 function MMAOctagonLogo({ size = 20, className = '' }) {
   return (
-    <svg viewBox="0 0 24 24" width={size} height={size} className={className} fill="currentColor">
+    <svg viewBox="0 0 24 24" width={size} height={size} className={className} fill="currentColor" aria-hidden="true">
       {/* Octagon */}
       <polygon
         points="8,2 16,2 22,8 22,16 16,22 8,22 2,16 2,8"

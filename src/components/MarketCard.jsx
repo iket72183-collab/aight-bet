@@ -1,12 +1,13 @@
 import { useNavigate } from 'react-router-dom';
 import LeagueLogo from './LeagueLogo';
 import TeamLogo from './TeamLogo';
+import { formatScoreAge } from '../hooks/useScores';
 
 /**
  * Reusable market card used on the landing page and active markets grid.
  * Displays league info, live status, and favorite/underdog pick options.
  */
-export default function MarketCard({ market, score }) {
+export default function MarketCard({ market, score, gameState }) {
   const navigate = useNavigate();
 
   const goToMarket = (selectedType) => {
@@ -21,7 +22,11 @@ export default function MarketCard({ market, score }) {
   return (
     <div
       onClick={goToDetail}
-      className="bg-[#111] border border-white/5 rounded-2xl p-6 hover:border-[var(--color-brand-gold)]/30 transition-colors duration-300 cursor-pointer group"
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goToDetail(); } }}
+      role="article"
+      tabIndex={0}
+      aria-label={`${market.homeTeam || market.safeTeam} vs ${market.awayTeam || market.riskyTeam}${market.isLive ? ', live now' : ', upcoming'}`}
+      className="bg-[#111] border border-white/5 rounded-2xl p-6 hover:border-[var(--color-brand-gold)]/30 focus-visible:border-[var(--color-brand-gold)]/60 transition-colors duration-300 cursor-pointer group"
     >
       {/* Header row: league + live badge */}
       <div className="flex justify-between items-center mb-6">
@@ -30,8 +35,8 @@ export default function MarketCard({ market, score }) {
           {market.eventName || market.organization || market.league} &bull; {market.time}
         </span>
         {market.isLive ? (
-          <div className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+          <div className="flex items-center gap-1" aria-label="Live game in progress">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" aria-hidden="true" />
             <span className="text-xs text-red-500 uppercase tracking-widest font-medium">Live</span>
           </div>
         ) : (
@@ -43,17 +48,38 @@ export default function MarketCard({ market, score }) {
 
       {/* Live scoreboard */}
       {score && market.isLive && (
-        <div className="flex items-center justify-center gap-4 mb-4 py-3 bg-black/40 rounded-xl border border-white/5">
-          <div className="flex items-center gap-2 text-right">
-            <TeamLogo team={market.homeTeam} size={18} />
-            <span className="text-sm text-gray-300 font-medium truncate max-w-[80px]">{market.homeTeam?.split(' ').pop()}</span>
-            <span className="text-xl font-[Outfit] font-bold text-white">{score.homeScore}</span>
+        <div className="mb-4 py-3 bg-black/40 rounded-xl border border-white/5">
+          <div className="flex items-center justify-center gap-4">
+            <div className="flex items-center gap-2 text-right">
+              <TeamLogo team={market.homeTeam} size={18} />
+              <span className="text-sm text-gray-300 font-medium truncate max-w-[80px]">{market.homeTeam?.split(' ').pop()}</span>
+              <span className="text-xl font-[Outfit] font-bold text-white">{score.homeScore}</span>
+            </div>
+            <span className="text-xs text-gray-500 uppercase tracking-widest">vs</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xl font-[Outfit] font-bold text-white">{score.awayScore}</span>
+              <span className="text-sm text-gray-300 font-medium truncate max-w-[80px]">{market.awayTeam?.split(' ').pop()}</span>
+              <TeamLogo team={market.awayTeam} size={18} />
+            </div>
           </div>
-          <span className="text-xs text-gray-500 uppercase tracking-widest">vs</span>
-          <div className="flex items-center gap-2">
-            <span className="text-xl font-[Outfit] font-bold text-white">{score.awayScore}</span>
-            <span className="text-sm text-gray-300 font-medium truncate max-w-[80px]">{market.awayTeam?.split(' ').pop()}</span>
-            <TeamLogo team={market.awayTeam} size={18} />
+          {/* Status line — ESPN period detail preferred over generic "Live" */}
+          <div className="flex items-center justify-center gap-2 mt-2">
+            {score.completed || gameState?.completed ? (
+              <span className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Final</span>
+            ) : gameState?.detail ? (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" aria-hidden="true" />
+                <span className="text-[10px] uppercase tracking-widest text-red-400 font-medium">{gameState.detail}</span>
+              </>
+            ) : (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" aria-hidden="true" />
+                <span className="text-[10px] uppercase tracking-widest text-red-400 font-medium">Live</span>
+                {score.lastUpdate && (
+                  <span className="text-[10px] text-gray-400">· {formatScoreAge(score.lastUpdate)}</span>
+                )}
+              </>
+            )}
           </div>
         </div>
       )}
@@ -69,6 +95,7 @@ export default function MarketCard({ market, score }) {
         {/* Safe pick */}
         <button
           onClick={(e) => { e.stopPropagation(); goToMarket('safe'); }}
+          aria-label={`Safe pick: ${market.safeTeam} at ${market.safeOdds}`}
           className="w-full flex justify-between items-center bg-black/40 p-3 rounded-lg border border-transparent hover:border-emerald-500/40 hover:bg-emerald-500/10 transition-all duration-300 text-left group/safe"
         >
           <div className="flex items-center gap-2">
@@ -86,6 +113,7 @@ export default function MarketCard({ market, score }) {
         {/* Risky pick */}
         <button
           onClick={(e) => { e.stopPropagation(); goToMarket('risky'); }}
+          aria-label={`Risky pick: ${market.riskyTeam} at ${market.riskyOdds}`}
           className="w-full flex justify-between items-center bg-black/40 p-3 rounded-lg border border-transparent hover:border-[var(--color-brand-gold)]/40 hover:bg-[var(--color-brand-gold)]/10 transition-all duration-300 text-left group/risky"
         >
           <div className="flex items-center gap-2">

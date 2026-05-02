@@ -6,9 +6,9 @@ export default function LandingPage() {
   return (
     <div className="flex flex-col w-full h-full relative">
       {/* Hero Section */}
-      <section className="relative min-h-[90vh] flex flex-col items-center justify-center pt-20 px-6 overflow-hidden">
+      <section className="relative min-h-[85vh] flex flex-col items-center justify-center pt-6 px-6 overflow-hidden">
         {/* Logo Hero Background */}
-        <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 z-0" aria-hidden="true">
           <img
             src="/logo-hero.png"
             alt=""
@@ -20,8 +20,8 @@ export default function LandingPage() {
 
         {/* Hero Content */}
         <div className="relative z-20 flex flex-col items-center text-center max-w-4xl mx-auto mt-[-5vh]">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md mb-8">
-            <span className="w-2 h-2 rounded-full bg-[var(--color-brand-gold)] animate-pulse" />
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md mb-4">
+            <span className="w-2 h-2 rounded-full bg-[var(--color-brand-gold)] animate-pulse" aria-hidden="true" />
             <span className="text-xs uppercase tracking-widest text-[var(--color-brand-gold)] font-medium">Live Odds Active</span>
           </div>
 

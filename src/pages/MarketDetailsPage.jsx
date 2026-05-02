@@ -3,7 +3,8 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, TrendingUp, AlertTriangle, ArrowLeftRight, BarChart3 } from 'lucide-react';
 import { getMarketById, calculatePayout } from '../data/markets';
 import { getCachedMarketById } from '../hooks/useMarkets';
-import { useScores } from '../hooks/useScores';
+import { useScores, formatScoreAge } from '../hooks/useScores';
+import { useGameState } from '../hooks/useGameState';
 import LeagueLogo from '../components/LeagueLogo';
 import TeamLogo from '../components/TeamLogo';
 
@@ -43,6 +44,11 @@ export default function MarketDetailsPage() {
   // Live scores — only polls when this game is live
   const { scores } = useScores(market?.league || 'NBA', Boolean(market?.isLive));
   const score = market ? scores.get(market.id) : null;
+
+  // ESPN game state (period, clock) — only polls when live
+  const marketsArr = useMemo(() => (market ? [market] : []), [market]);
+  const { gameStates } = useGameState(market?.league || 'NBA', marketsArr, Boolean(market?.isLive));
+  const gameState = market ? gameStates.get(market.id) : null;
 
   /** Select a pick */
   const selectPick = (type) => {
@@ -93,7 +99,7 @@ export default function MarketDetailsPage() {
   const riskyPayout = calculatePayout(100, market.riskyOdds).toFixed(2);
 
   return (
-    <div className="flex flex-col w-full min-h-[90vh] bg-[#0a0a0a] pt-4 px-4 md:px-12 pb-16 relative overflow-hidden">
+    <div className="flex flex-col w-full min-h-[90vh] bg-[#0a0a0a] pt-4 px-4 md:px-12 pb-6 relative overflow-hidden">
       {/* Background glow */}
       <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-[var(--color-brand-gold)]/5 blur-[150px] rounded-full pointer-events-none" />
 
@@ -115,8 +121,8 @@ export default function MarketDetailsPage() {
             </span>
             <span className="text-xs text-gray-400 uppercase tracking-widest">{market.time}</span>
             {market.isLive && (
-              <span className="flex items-center gap-2 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded text-xs font-medium uppercase tracking-widest text-red-500">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+              <span className="flex items-center gap-2 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded text-xs font-medium uppercase tracking-widest text-red-500" aria-label="Live game in progress">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" aria-hidden="true" />
                 Live
               </span>
             )}
@@ -127,17 +133,38 @@ export default function MarketDetailsPage() {
 
           {/* Live scoreboard */}
           {score && market.isLive && (
-            <div className="flex items-center gap-5 mt-3 py-3 px-5 bg-black/40 rounded-xl border border-white/10 w-fit">
-              <div className="flex items-center gap-3">
-                <TeamLogo team={market.homeTeam} size={24} />
-                <span className="text-sm text-gray-300 font-medium">{market.homeTeam}</span>
-                <span className="text-2xl font-[Outfit] font-bold text-white">{score.homeScore}</span>
+            <div className="mt-3 py-3 px-5 bg-black/40 rounded-xl border border-white/10 w-fit">
+              <div className="flex items-center gap-5">
+                <div className="flex items-center gap-3">
+                  <TeamLogo team={market.homeTeam} size={24} />
+                  <span className="text-sm text-gray-300 font-medium">{market.homeTeam}</span>
+                  <span className="text-2xl font-[Outfit] font-bold text-white">{score.homeScore}</span>
+                </div>
+                <span className="text-xs text-gray-500 uppercase tracking-widest">—</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl font-[Outfit] font-bold text-white">{score.awayScore}</span>
+                  <span className="text-sm text-gray-300 font-medium">{market.awayTeam}</span>
+                  <TeamLogo team={market.awayTeam} size={24} />
+                </div>
               </div>
-              <span className="text-xs text-gray-500 uppercase tracking-widest">—</span>
-              <div className="flex items-center gap-3">
-                <span className="text-2xl font-[Outfit] font-bold text-white">{score.awayScore}</span>
-                <span className="text-sm text-gray-300 font-medium">{market.awayTeam}</span>
-                <TeamLogo team={market.awayTeam} size={24} />
+              {/* Status indicator — ESPN period detail when available */}
+              <div className="flex items-center gap-2 mt-2">
+                {score.completed || gameState?.completed ? (
+                  <span className="text-xs uppercase tracking-widest text-gray-400 font-bold">Final</span>
+                ) : gameState?.detail ? (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" aria-hidden="true" />
+                    <span className="text-xs uppercase tracking-widest text-red-400 font-medium">{gameState.detail}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" aria-hidden="true" />
+                    <span className="text-xs uppercase tracking-widest text-red-400 font-medium">Live</span>
+                    {score.lastUpdate && (
+                      <span className="text-xs text-gray-400">· Updated {formatScoreAge(score.lastUpdate)}</span>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -152,6 +179,8 @@ export default function MarketDetailsPage() {
           {/* Safe pick card */}
           <button
             onClick={() => selectPick('safe')}
+            aria-label={`Select safe pick: ${market.safeTeam} at ${market.safeOdds}`}
+            aria-pressed={betType === 'safe'}
             className={`text-left p-4 rounded-2xl border-2 transition-all duration-300 ${
               betType === 'safe'
                 ? 'border-emerald-500 bg-emerald-500/10 shadow-[0_0_20px_rgba(52,211,153,0.15)]'
@@ -195,6 +224,8 @@ export default function MarketDetailsPage() {
           {/* Risky pick card */}
           <button
             onClick={() => selectPick('risky')}
+            aria-label={`Select risky pick: ${market.riskyTeam} at ${market.riskyOdds}`}
+            aria-pressed={betType === 'risky'}
             className={`text-left p-4 rounded-2xl border-2 transition-all duration-300 ${
               betType === 'risky'
                 ? 'border-[var(--color-brand-gold)] bg-[var(--color-brand-gold)]/10 shadow-[0_0_20px_rgba(168,85,247,0.15)]'
@@ -392,7 +423,7 @@ export default function MarketDetailsPage() {
                             const cleaned = sanitized.replace(/^0+(\d)/, '$1');
                             setWager(cleaned === '' ? '0' : cleaned);
                           }}
-                          className="w-full bg-black border border-white/10 rounded-lg py-3 pl-8 pr-4 text-white font-medium focus:outline-none focus:border-[var(--color-brand-gold)] transition-colors"
+                          className="w-full bg-black border border-white/10 rounded-lg py-3 pl-8 pr-4 text-white font-medium focus-visible:outline-2 focus-visible:outline-[var(--color-brand-gold)] focus-visible:outline-offset-1 focus:border-[var(--color-brand-gold)] transition-colors"
                         />
                       </div>
                     </div>
@@ -417,7 +448,7 @@ export default function MarketDetailsPage() {
 
                   <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-center">
                     <p className="text-xs text-gray-400 uppercase tracking-widest font-medium mb-1">Consultation Only</p>
-                    <p className="text-[11px] text-gray-500 leading-relaxed">
+                    <p className="text-[11px] text-gray-400 leading-relaxed">
                       Odds data sourced from FanDuel, DraftKings, and BetMGM for informational reference.
                     </p>
                   </div>

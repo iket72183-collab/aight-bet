@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { fetchOddsForLeague } from '../lib/oddsApi';
 import { allMarkets as staticMarkets } from '../data/markets';
+import { cacheSet, cacheGet } from '../lib/offlineCache';
 
 /**
  * Default auto-refresh interval: 5 minutes.
@@ -116,13 +117,26 @@ export function useMarkets(league, { refreshInterval = DEFAULT_REFRESH_MS } = {}
       setIsLive(true);
       setCachedMarkets(league, active);
       setLastUpdated(new Date());
+
+      // Persist to offline cache for use when network is unavailable
+      cacheSet(`markets_${league}`, active);
     } catch (err) {
       // Aborts are intentional cancellations — not user-facing errors.
       if (err.name === 'AbortError' || controller.signal.aborted) return;
       console.error(`[useMarkets] Failed to fetch ${league}:`, err);
       setError(err.message);
-      setMarkets(staticMarkets[league] || []);
-      setIsLive(false);
+
+      // Try offline cache before falling back to static data
+      const cached = cacheGet(`markets_${league}`);
+      if (cached && cached.data && cached.data.length > 0) {
+        setMarkets(cached.data);
+        setIsLive(true); // was live data when cached
+        setCachedMarkets(league, cached.data);
+        setLastUpdated(new Date(cached.timestamp));
+      } else {
+        setMarkets(staticMarkets[league] || []);
+        setIsLive(false);
+      }
     } finally {
       if (!controller.signal.aborted && !isBackground) {
         setLoading(false);

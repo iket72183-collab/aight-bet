@@ -241,6 +241,75 @@ app.get('/api/scores/:league', async (req, res) => {
   }
 });
 
+/**
+ * ── ESPN Scoreboard proxy ───────────────────────────────────────────────
+ * Provides game status (period, clock, shortDetail) from ESPN's
+ * unofficial scoreboard API. Cached for 30s for live freshness.
+ */
+const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports';
+const ESPN_SPORT_MAP = {
+  NBA: 'basketball/nba',
+  MLB: 'baseball/mlb',
+  NFL: 'football/nfl',
+  MMA: 'mma/ufc',
+};
+const espnCache = {};
+const ESPN_CACHE_TTL_MS = 30 * 1000; // 30 seconds
+
+app.get('/api/gamestate/:league', async (req, res) => {
+  const league = req.params.league.toUpperCase();
+  const espnSport = ESPN_SPORT_MAP[league];
+  if (!espnSport) {
+    return res.status(400).json({ error: `Unknown league: ${league}` });
+  }
+
+  // Serve from cache if fresh
+  const cached = espnCache[league];
+  if (cached && Date.now() - cached.timestamp < ESPN_CACHE_TTL_MS) {
+    return res.json({ data: cached.data, cached: true });
+  }
+
+  try {
+    const upstream = await fetch(`${ESPN_BASE}/${espnSport}/scoreboard`);
+    if (!upstream.ok) {
+      return res.status(upstream.status).json({ error: `ESPN returned ${upstream.status}` });
+    }
+
+    const json = await upstream.json();
+    const events = json.events || [];
+
+    // Normalize into a compact format keyed by team names
+    const gameStates = events.map((event) => {
+      const comp = event.competitions?.[0];
+      const status = comp?.status || {};
+      const type = status.type || {};
+      const competitors = comp?.competitors || [];
+
+      const home = competitors.find((c) => c.homeAway === 'home');
+      const away = competitors.find((c) => c.homeAway === 'away');
+
+      return {
+        espnId: event.id,
+        homeTeam: home?.team?.displayName || '',
+        awayTeam: away?.team?.displayName || '',
+        homeScore: home?.score || '0',
+        awayScore: away?.score || '0',
+        state: type.state || 'pre', // pre, in, post
+        period: status.period || 0,
+        clock: status.displayClock || '',
+        detail: type.shortDetail || '',
+        completed: type.completed || false,
+      };
+    });
+
+    espnCache[league] = { data: gameStates, timestamp: Date.now() };
+    return res.json({ data: gameStates, cached: false });
+  } catch (err) {
+    console.error(`[server] ESPN fetch failed for ${league}:`, err.message);
+    return res.status(502).json({ error: 'Failed to reach ESPN', detail: err.message });
+  }
+});
+
 /** Health check */
 app.get('/api/health', (_req, res) => {
   res.json({

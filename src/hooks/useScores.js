@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { cacheSet, cacheGet } from '../lib/offlineCache';
 
 /**
  * Scores API client + polling hook.
@@ -24,9 +25,9 @@ async function fetchScores(league, signal) {
 }
 
 /**
- * Build a lookup map from event ID → { home, away } score strings.
+ * Build a lookup map from event ID → score data.
  * The Odds API scores response shape:
- *   { id, scores: [{ name: "Team A", score: "102" }, { name: "Team B", score: "98" }], completed }
+ *   { id, scores: [{ name: "Team A", score: "102" }, ...], completed, last_update }
  */
 function buildScoreMap(events) {
   const map = new Map();
@@ -38,9 +39,24 @@ function buildScoreMap(events) {
       homeScore: home?.score ?? '—',
       awayScore: away?.score ?? '—',
       completed: event.completed || false,
+      lastUpdate: event.last_update || null,
     });
   }
   return map;
+}
+
+/**
+ * Format a last_update ISO timestamp into a human-friendly relative string.
+ * e.g. "Just now", "2m ago", "15m ago", "1h ago"
+ */
+export function formatScoreAge(lastUpdate) {
+  if (!lastUpdate) return null;
+  const diff = Date.now() - new Date(lastUpdate).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  return `${hrs}h ago`;
 }
 
 /**
@@ -68,10 +84,18 @@ export function useScores(league, hasLiveGames = false) {
     try {
       const events = await fetchScores(league, controller.signal);
       if (controller.signal.aborted) return;
-      setScores(buildScoreMap(events));
+      const scoreMap = buildScoreMap(events);
+      setScores(scoreMap);
+      // Cache the raw events for offline use
+      cacheSet(`scores_${league}`, events);
     } catch (err) {
       if (err.name === 'AbortError') return;
       console.error(`[useScores] ${league}:`, err.message);
+      // Fall back to cached scores when offline
+      const cached = cacheGet(`scores_${league}`);
+      if (cached && cached.data) {
+        setScores(buildScoreMap(cached.data));
+      }
     } finally {
       if (!controller.signal.aborted && !bg) setLoading(false);
       if (controllerRef.current === controller) controllerRef.current = null;
