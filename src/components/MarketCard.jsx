@@ -98,16 +98,18 @@ export default function MarketCard({ market, score, gameState }) {
           aria-label={`Safe pick: ${market.safeTeam} at ${market.safeOdds}`}
           className="w-full flex justify-between items-center bg-black/40 p-3 rounded-lg border border-transparent hover:border-emerald-500/40 hover:bg-emerald-500/10 transition-all duration-300 text-left group/safe"
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <TeamLogo team={market.safeTeam} size={20} />
-            <span className="font-semibold text-gray-200">{market.safeTeam}</span>
+            <span className="font-semibold text-gray-200 truncate">{market.safeTeam}</span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 ml-2">
             <span className="text-xs uppercase tracking-widest px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-sm font-semibold">
               Safe
             </span>
+            <span className="text-emerald-400 font-[Outfit] font-bold group-hover/safe:scale-110 transition-transform duration-300">
+              {market.safeOdds}
+            </span>
           </div>
-          <span className="text-emerald-400 font-[Outfit] font-bold group-hover/safe:scale-110 transition-transform duration-300">
-            {market.safeOdds}
-          </span>
         </button>
 
         {/* Risky pick */}
@@ -116,16 +118,18 @@ export default function MarketCard({ market, score, gameState }) {
           aria-label={`Risky pick: ${market.riskyTeam} at ${market.riskyOdds}`}
           className="w-full flex justify-between items-center bg-black/40 p-3 rounded-lg border border-transparent hover:border-[var(--color-brand-gold)]/40 hover:bg-[var(--color-brand-gold)]/10 transition-all duration-300 text-left group/risky"
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <TeamLogo team={market.riskyTeam} size={20} />
-            <span className="font-semibold text-gray-200">{market.riskyTeam}</span>
+            <span className="font-semibold text-gray-200 truncate">{market.riskyTeam}</span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 ml-2">
             <span className="text-xs uppercase tracking-widest px-2 py-0.5 bg-[var(--color-brand-gold)]/10 text-[var(--color-brand-gold)] border border-[var(--color-brand-gold)]/20 rounded-sm font-semibold">
               Risky
             </span>
+            <span className="text-[var(--color-brand-gold)] font-[Outfit] font-bold group-hover/risky:scale-110 transition-transform duration-300">
+              {market.riskyOdds}
+            </span>
           </div>
-          <span className="text-[var(--color-brand-gold)] font-[Outfit] font-bold group-hover/risky:scale-110 transition-transform duration-300">
-            {market.riskyOdds}
-          </span>
         </button>
       </div>
     </div>

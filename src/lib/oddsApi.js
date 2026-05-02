@@ -6,6 +6,7 @@
  */
 
 import { lookupMmaEvent } from '../data/mmaEvents';
+import { formatGameTime } from './timezone';
 
 /** Proxy base URL — same origin in production, localhost:3001 in dev */
 const PROXY_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3001';
@@ -126,37 +127,13 @@ function normalizeEvent(event, league) {
     ? new Date(event.commence_time) <= new Date()
     : false;
 
-  // Format the game time for display
-  const commence = new Date(event.commence_time);
-  const now = new Date();
+  // Format the game time for display in the user's local timezone
   let timeDisplay;
 
   if (isLive) {
     timeDisplay = 'LIVE';
   } else {
-    const isToday = commence.toDateString() === now.toDateString();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const isTomorrow = commence.toDateString() === tomorrow.toDateString();
-
-    const timeStr = commence.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-    });
-
-    if (isToday) {
-      timeDisplay = `Today ${timeStr}`;
-    } else if (isTomorrow) {
-      timeDisplay = `Tomorrow ${timeStr}`;
-    } else {
-      timeDisplay = commence.toLocaleDateString('en-US', {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      });
-    }
+    timeDisplay = formatGameTime(event.commence_time);
   }
 
   // Get the best available bookmaker odds

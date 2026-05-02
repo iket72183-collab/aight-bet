@@ -6,10 +6,11 @@ import { leagueTabs, leagueConfig } from '../data/markets';
 import { useMarkets } from '../hooks/useMarkets';
 import { useScores } from '../hooks/useScores';
 import { useGameState } from '../hooks/useGameState';
+import { getLocalDateString, formatDateGroupLabel } from '../lib/timezone';
 import { Loader2, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 
 /**
- * Group markets by date.
+ * Group markets by date in the user's local timezone.
  * Live events go under "Live Now", others grouped by calendar date.
  */
 function groupByDate(markets) {
@@ -21,23 +22,8 @@ function groupByDate(markets) {
     if (market.isLive) {
       key = 'Live Now';
     } else if (market.commenceTime) {
-      // Live API data has commenceTime
-      const date = new Date(market.commenceTime);
-      const now = new Date();
-      const tomorrow = new Date(now);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
-      if (date.toDateString() === now.toDateString()) {
-        key = 'Today';
-      } else if (date.toDateString() === tomorrow.toDateString()) {
-        key = 'Tomorrow';
-      } else {
-        key = date.toLocaleDateString('en-US', {
-          weekday: 'long',
-          month: 'short',
-          day: 'numeric',
-        });
-      }
+      // Use timezone-aware date grouping
+      key = formatDateGroupLabel(market.commenceTime);
     } else {
       // Static mock data — use the time field as a rough grouping
       key = market.time?.includes('PM') || market.time?.includes('AM') ? 'Today' : 'Live Now';
@@ -138,7 +124,7 @@ export default function ActiveMarketsPage() {
           {isLive && lastUpdated && (
             <div className="flex items-center gap-3 mt-2">
               <span className="text-xs text-gray-300">
-                Updated {lastUpdated.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                Updated {lastUpdated.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}
                 {' · auto-refreshes every 5 min'}
               </span>
               <button

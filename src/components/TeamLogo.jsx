@@ -70,6 +70,8 @@ const TEAM_LOGOS = {
   'Washington Nationals': { abbrev: 'wsh', league: 'mlb' },
   'Miami Marlins': { abbrev: 'mia', league: 'mlb' },
   'Oakland Athletics': { abbrev: 'oak', league: 'mlb' },
+  'Athletics': { abbrev: 'oak', league: 'mlb' },
+  'Sacramento Athletics': { abbrev: 'oak', league: 'mlb' },
 
   // ── NFL ──────────────────────────────────────────
   'Kansas City Chiefs': { abbrev: 'kc', league: 'nfl' },
