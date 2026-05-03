@@ -254,16 +254,55 @@ async function syncAllSports() {
 
   const today = new Date().toISOString().split('T')[0];
 
-  // Delete today's stale picks, then insert fresh
-  await supabase.from('daily_picks').delete().eq('sync_date', today);
+  // Safe swap pattern: validate the full batch in hidden staging rows,
+  // then upsert today's rows before deleting stale leftovers.
+  // sync_date is a DATE column, so use a valid sentinel date for staging.
+  const stagingDate = '1900-01-01';
 
-  const rows = allPicks.map((p) => ({ ...p, sync_date: today }));
-  const { error: insertError } = await supabase.from('daily_picks').insert(rows);
+  // 1. Clean any leftover staging rows from a previous failed sync.
+  await supabase.from('daily_picks').delete().eq('sync_date', stagingDate);
+
+  // 2. Insert new picks under the staging date.
+  const stagingRows = allPicks.map((p) => ({ ...p, sync_date: stagingDate }));
+  const { error: insertError } = await supabase.from('daily_picks').insert(stagingRows);
 
   if (insertError) {
     console.error('[sync] Supabase insert error:', insertError.message);
+    // Clean up staging rows on failure — old data stays intact
+    await supabase.from('daily_picks').delete().eq('sync_date', stagingDate);
     throw insertError;
   }
+
+  // 3. Upsert today's rows only after the staging insert proves the batch is valid.
+  const todayRows = allPicks.map((p) => ({ ...p, sync_date: today }));
+  const { data: upsertedRows, error: upsertError } = await supabase
+    .from('daily_picks')
+    .upsert(todayRows, { onConflict: 'game_id,pick_team,classification,sync_date' })
+    .select('id');
+
+  if (upsertError) {
+    console.error('[sync] Supabase upsert error:', upsertError.message);
+    await supabase.from('daily_picks').delete().eq('sync_date', stagingDate);
+    throw upsertError;
+  }
+
+  // 4. Remove old today rows that are not part of the new successful batch.
+  const keepIds = (upsertedRows || []).map((row) => row.id).filter(Boolean);
+  if (keepIds.length > 0) {
+    const { error: deleteOldError } = await supabase
+      .from('daily_picks')
+      .delete()
+      .eq('sync_date', today)
+      .not('id', 'in', `(${keepIds.join(',')})`);
+
+    if (deleteOldError) {
+      console.error('[sync] Supabase stale-row cleanup error:', deleteOldError.message);
+      errors.push({ sport: 'cleanup', error: deleteOldError.message });
+    }
+  }
+
+  // 5. Best-effort staging cleanup. Clients never query this date.
+  await supabase.from('daily_picks').delete().eq('sync_date', stagingDate);
 
   console.log(`[sync] Done — ${allPicks.length} picks written to Supabase`);
   return { synced: allPicks.length, errors };
@@ -352,7 +391,15 @@ app.get('/api/picks', async (req, res) => {
     let query = supabase.from('daily_picks').select('*').eq('sync_date', today);
 
     if (sport) {
-      const sportKey = SYNC_SPORTS.find((s) => s.includes(sport.toLowerCase())) || sport;
+      // Exact lookup — prevents substring false positives (e.g. "ball" matching "basketball_nba")
+      const SPORT_SHORT_MAP = {
+        nfl: 'americanfootball_nfl',
+        nba: 'basketball_nba',
+        mlb: 'baseball_mlb',
+        nhl: 'icehockey_nhl',
+        mls: 'soccer_usa_mls',
+      };
+      const sportKey = SPORT_SHORT_MAP[sport.toLowerCase()] || sport;
       query = query.eq('sport', sportKey);
     }
     if (classification) {
